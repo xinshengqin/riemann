@@ -36,12 +36,19 @@ module shallow_topo_device_module
 
         implicit none
 
+#if (CLAW_REAL == 8)
         real(c_double), intent(in) :: q_l(NEQNS), q_r(NEQNS)
         real(c_double), intent(in) :: aux_r(NCOEFFS), aux_l(NCOEFFS)
-
         ! Output arguments
         real(c_double), intent(inout) :: fwave(1:blockDim%x*blockDim%y*NEQNS*NWAVES)
         real(c_double), intent(inout) :: s(1:blockDim%x*blockDim%y*NWAVES)
+#else
+        real(c_float), intent(in) :: q_l(NEQNS), q_r(NEQNS)
+        real(c_float), intent(in) :: aux_r(NCOEFFS), aux_l(NCOEFFS)
+        ! Output arguments
+        real(c_float), intent(inout) :: fwave(1:blockDim%x*blockDim%y*NEQNS*NWAVES)
+        real(c_float), intent(inout) :: s(1:blockDim%x*blockDim%y*NWAVES)
+#endif
 
         !local only
         integer m,mw
@@ -233,12 +240,19 @@ module shallow_topo_device_module
 
         implicit none
 
+#if (CLAW_REAL == 8)
         real(c_double), intent(in) :: q_l(NEQNS), q_r(NEQNS)
         real(c_double), intent(in) :: aux_r(NCOEFFS), aux_l(NCOEFFS)
-
         ! Output arguments
         real(c_double), intent(inout) :: fwave(1:blockDim%x*blockDim%y*NEQNS*NWAVES)
         real(c_double), intent(inout) :: s(1:blockDim%x*blockDim%y*NWAVES)
+#else
+        real(c_float), intent(in) :: q_l(NEQNS), q_r(NEQNS)
+        real(c_float), intent(in) :: aux_r(NCOEFFS), aux_l(NCOEFFS)
+        ! Output arguments
+        real(c_float), intent(inout) :: fwave(1:blockDim%x*blockDim%y*NEQNS*NWAVES)
+        real(c_float), intent(inout) :: s(1:blockDim%x*blockDim%y*NWAVES)
+#endif
 
         !local only
         integer m,mw
