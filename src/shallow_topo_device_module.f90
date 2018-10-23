@@ -51,13 +51,11 @@ module shallow_topo_device_module
 
         real(CLAW_REAL) hR,hL,uR,uL,vR,vL,phiR,phiL
         real(CLAW_REAL) bR,bL,sL,sR,sRoe1,sRoe2,sE1,sE2,uhat,chat
-        real(CLAW_REAL) s1m,s2m
         real(CLAW_REAL) hstar,hstartest,hstarHLL
 #ifdef USE_CAPA
         real(CLAW_REAL) dxdc
 #endif
 
-        logical rare1,rare2
 
         !-----------------------Initializing-----------------------------------
 
@@ -116,8 +114,7 @@ module shallow_topo_device_module
             wall(2) = 1.d0
             wall(3) = 1.d0
             if (hR.le.drytol) then
-                call riemanntype(hL,hL,uL,-uL,hstar,s1m,s2m, &
-                         rare1,rare2)
+                call get_hm(hL,hL,uL,-uL,hstar)
                 hstartest=max(hL,hstar)
                 if (hstartest+bL.lt.bR) then 
                 ! hL+bL < bR && hstar+bL < bR, so water can't overtop right cell (move into right cell)
@@ -139,8 +136,7 @@ module shallow_topo_device_module
                 ! hL+bL > bR || hstar+bL > bR, don't have to do anything about bR 
                 endif
             elseif (hL.le.drytol) then ! right surface is lower than left topo
-                call riemanntype(hR,hR,-uR,uR,hstar,s1m,s2m, &
-                         rare1,rare2)
+                call get_hm(hR,hR,-uR,uR,hstar)
                 hstartest=max(hR,hstar)
                 if (hstartest+bR.lt.bL) then  !left state should become ghost values that mirror right
                     !               bL=hstartest+bR
@@ -248,13 +244,11 @@ module shallow_topo_device_module
 
         real(CLAW_REAL) hR,hL,uR,uL,vR,vL,phiR,phiL
         real(CLAW_REAL) bR,bL,sL,sR,sRoe1,sRoe2,sE1,sE2,uhat,chat
-        real(CLAW_REAL) s1m,s2m
         real(CLAW_REAL) hstar,hstartest,hstarHLL
 #ifdef USE_CAPA
         real(CLAW_REAL) dydc
 #endif
 
-        logical rare1,rare2
 
         !-----------------------Initializing-----------------------------------
 
@@ -314,8 +308,7 @@ module shallow_topo_device_module
             wall(2) = 1.d0
             wall(3) = 1.d0
             if (hR.le.drytol) then
-                call riemanntype(hL,hL,uL,-uL,hstar,s1m,s2m, &
-                         rare1,rare2)
+                call get_hm(hL,hL,uL,-uL,hstar)
                 hstartest=max(hL,hstar)
                 if (hstartest+bL.lt.bR) then 
                 ! hL+bL < bR && hstar+bL < bR, so water can't overtop right cell (move into right cell)
@@ -337,8 +330,7 @@ module shallow_topo_device_module
                 ! hL+bL > bR || hstar+bL > bR, don't have to do anything about bR 
                 endif
             elseif (hL.le.drytol) then ! right surface is lower than left topo
-                call riemanntype(hR,hR,-uR,uR,hstar,s1m,s2m, &
-                         rare1,rare2)
+                call get_hm(hR,hR,-uR,uR,hstar)
                 hstartest=max(hR,hstar)
                 if (hstartest+bR.lt.bL) then  !left state should become ghost values that mirror right
                     !               bL=hstartest+bR
@@ -438,10 +430,12 @@ attributes(device) &
       implicit none
 
       !input
-      real(CLAW_REAL) fw(NEQNS,NWAVES)
-      real(CLAW_REAL) sw(NWAVES)
-      real(CLAW_REAL) hL,hR,bL,bR,uL,uR,phiL,phiR,sE1,sE2
-      real(CLAW_REAL) vL,vR
+      real(CLAW_REAL), intent(in) :: hL,hR,bL,bR,uL,uR,phiL,phiR
+      real(CLAW_REAL), intent(in) :: vL,vR
+      !output
+      real(CLAW_REAL), intent(inout) :: sE1,sE2
+      real(CLAW_REAL), intent(out) :: fw(NEQNS,NWAVES)
+      real(CLAW_REAL), intent(out) :: sw(NWAVES)
 
 
       !local
@@ -720,18 +714,18 @@ attributes(device) &
       implicit none
 
       !input
-      real(CLAW_REAL) hL,hR,uL,uR
+      real(CLAW_REAL), intent(in) :: hL,hR,uL,uR
 
       !output 
       ! 1 and 2 represent wave speeds relavant to 1st field and 2nd field
-      real(CLAW_REAL) s1m,s2m,hm
-      logical rare1,rare2
+      real(CLAW_REAL), intent(out) :: s1m,s2m,hm
+      logical, intent(out) :: rare1,rare2
 
       !local
-      real(CLAW_REAL) u1m,u2m,um,delu
-      real(CLAW_REAL) h_max,h_min,h0,F_max,F_min,dfdh,F0,slope,gL,gR
+      real(kind=4) u1m,u2m,um,delu
+      real(kind=4) h_max,h_min,h0,F_max,F_min,dfdh,F0,slope,gL,gR
       ! temporary
-      real(CLAW_REAL) :: sqrtgh1,sqrtgh2
+      real(kind=4) :: sqrtgh1,sqrtgh2
       integer iter
 
 
@@ -857,4 +851,81 @@ attributes(device) &
 
       return
       end ! subroutine riemanntype----------------------------------------------------------------
+
+#ifdef CUDA
+attributes(device) &
+#endif
+      subroutine get_hm(hL,hR,uL,uR,hm)
+
+          implicit none
+
+          !input
+          real(CLAW_REAL), intent(in) :: hL,hR,uL,uR
+
+          !output 
+          ! 1 and 2 represent wave speeds relavant to 1st field and 2nd field
+          real(CLAW_REAL), intent(out) :: hm
+
+          !local
+          real(kind=4) delu
+          real(kind=4) h_max,h_min,h0,F_max,F_min,dfdh,F0,slope,gL,gR
+          ! temporary
+          integer iter
+
+
+
+          !     !Test for Riemann structure
+
+          h_min=min(hR,hL)
+          h_max=max(hR,hL)
+          delu=uR-uL
+
+          ! Have dry state on either side
+          ! Only one rarefaction wave
+          ! another shock wave has 0 jump and moves at the same speed
+          ! as one edge of the rarefaction wave
+          if (h_min.le.drytol) then
+              hm=0.d0
+          else
+              F_min= delu+2.d0*(sqrt(g*h_min)-sqrt(g*h_max))
+              F_max= delu + &
+                  (h_max-h_min)*(sqrt(.5d0*g*(h_max+h_min)/(h_max*h_min)))
+
+              if (F_min.gt.0.d0) then !2-rarefactions
+
+                  ! (13.56) in the FVMHP book
+                  hm=(1.d0/(16.d0*g))* &
+                      max(0.d0,-delu+2.d0*(sqrt(g*hL)+sqrt(g*hR)))**2
+              elseif (F_max.le.0.d0) then !2 shocks
+                  ! Below it solves for the intersection of two Hugoniot loci
+                  ! to get accurate Riemann solution
+
+                  !           !root finding using a Newton iteration on sqrt(h)===
+                  h0=h_max
+                  do iter=1,MAXITER
+                      gL=sqrt(.5d0*g*(1/h0 + 1/hL))
+                      gR=sqrt(.5d0*g*(1/h0 + 1/hR))
+                      F0=delu+(h0-hL)*gL + (h0-hR)*gR
+                      dfdh=gL-g*(h0-hL)/(4.d0*(h0**2)*gL)+ &
+                          gR-g*(h0-hR)/(4.d0*(h0**2)*gR)
+                      slope=2.d0*sqrt(h0)*dfdh
+                      h0=(sqrt(h0)-F0/slope)**2
+                  enddo
+                  hm=h0
+              else !one shock one rarefaction
+                  h0=h_min
+
+                  do iter=1,MAXITER
+                      F0=delu + 2.d0*(sqrt(g*h0)-sqrt(g*h_max)) &
+                          + (h0-h_min)*sqrt(.5d0*g*(1/h0+1/h_min))
+                      slope=(F_max-F0)/(h_max-h_min)
+                      h0=h0-F0/slope
+                  enddo
+
+                  hm=h0
+              endif
+          endif
+
+          return
+          end ! subroutine get_hm ----------------------------------------------------------------
 end module shallow_topo_device_module
